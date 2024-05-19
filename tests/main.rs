@@ -7,13 +7,10 @@ use std::{
 
 use anyhow::Result;
 use once_cell::sync::Lazy;
-use testcontainers::{core::Mount, runners::AsyncRunner, *};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
 };
-
-use futures::prelude::*;
 
 static PROJECT_PATH: Lazy<&Path> = Lazy::new(|| Path::new(env!("CARGO_MANIFEST_DIR")));
 static TESTDATA_PATH: Lazy<PathBuf> = Lazy::new(|| PROJECT_PATH.join("testdata"));

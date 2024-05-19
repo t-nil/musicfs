@@ -6,21 +6,61 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
+# staple, easy error propagation
 anyhow = { version = "1.0.83", features = ["backtrace"] }
+
+# useful stuff like deriving Display, calculus ops
 derive_more = "0.99.17"
+
+# backbone, FUSE Rust impl
 fuser = "0.14.0"
-futures = "0.3.30"
+libc = "0.2.153"
+
+# staple, functional programming
 itertools = "0.12.1"
-libc = "0.2.154"
-log = { version = "0.4.21", features = ["max_level_debug", "std", "release_max_level_warn"] }
+
+# staple
 once_cell = "1.19.0"
+
+# staple
 serde = { version = "1.0.202", features = ["derive"] }
 serde_derive = "1.0.202"
-simple-logging = "2.0.2"
+
+# staple, logging
+log = { version = "0.4.21", features = [
+    "max_level_debug",
+    "std",
+    "release_max_level_warn",
+] }
+env_logger = "0.11.3"
+
+# useful enum derives
 strum = { version = "0.26.2", features = ["derive", "strum_macros"] }
 strum_macros = "0.26.2"
-tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "sync", "process", "io-std"] }
+symphonia = { version = "0.5.4", features = ["all-codecs", "all-formats"] }
+symphonia-metadata = "0.5.4"
+
+# directory traversal
+walkdir = "2"
+
+# used for async
+tokio = { version = "1.37.0", features = [
+    "macros",
+    "rt-multi-thread",
+    "sync",
+    "process",
+    "io-std",
+] }
+futures = "0.3.30"
+
+# staple, parse command line arguments
+clap = { version = "4.5.4", features = ["derive", "wrap_help", "unicode"] }
 
 [dev-dependencies]
+
+# snapshot tests
 insta = "1.39.0"
+
+# test inside containers
 testcontainers = "0.16.7"
