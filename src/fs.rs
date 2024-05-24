@@ -19,6 +19,7 @@ use walkdir::WalkDir;
 use crate::fs::types::DirEntry;
 use crate::media::{is_media_file_by_name, MusicFile};
 
+use self::tree::{Node, Tree};
 use self::types::{Fd, FileType, Inode};
 
 const TTL: Duration = Duration::from_secs(1); // 1 second
@@ -39,10 +40,101 @@ type Inodes = Vec<PathBuf>;
 pub struct MusicFS {
     root: PathBuf,
     source_files: Vec<Arc<MusicFile>>,
-    vpath_table: HashMap<String, VPath>,
-    inode_table: Vec<PathBuf>,
+    tree: Tree,
     fd_table: HashMap<u64, Fd>,
     fd_index: u64,
+}
+
+mod tree {
+    use std::{
+        collections::{HashMap, HashSet, VecDeque},
+        path::Iter,
+        sync::Arc,
+    };
+
+    use derive_getters::Getters;
+    use log::error;
+
+    use crate::media::MusicFile;
+
+    use super::types::Inode;
+
+    #[derive(Debug, Clone)]
+    pub enum NodeType {
+        Directory(Vec<Node>),
+        File(Arc<MusicFile>),
+    }
+
+    #[derive(Debug, Clone, Getters)]
+    pub struct Node {
+        inode: Inode,
+        name: String,
+        file_type: NodeType,
+    }
+
+    #[derive(Debug, Clone, Getters)]
+    pub struct Tree {
+        root: Node,
+    }
+
+    impl Tree {
+        pub fn new(root: Node) -> Self {
+            Self::validate(&root);
+            Self { root }
+        }
+
+        fn validate(root: &Node) {
+            check_unique_inodes(&root);
+
+            fn check_unique_inodes(root: &Node) {
+                let mut inodes = HashSet::<i64>::new();
+                let mut tree_iter = TreeIterator::new(root);
+                let mut failed = false;
+                for node in tree_iter {
+                    if inodes.contains(&node.inode) {
+                        error!("Duplicate Inodes: {node:?}");
+                        failed = true;
+                    }
+                }
+
+                if failed {
+                    panic!("Duplicate inodes found");
+                }
+            }
+        }
+
+        pub fn iter<'a>(&'a self) -> TreeIterator<'a> {
+            TreeIterator::new(&self.root)
+        }
+    }
+
+    struct TreeIterator<'a> {
+        queue: VecDeque<&'a Node>,
+    }
+
+    impl<'a> TreeIterator<'a> {
+        fn new(root: &'a Node) -> Self {
+            fn collect_nodes(node: &Node) -> Vec<&Node> {
+                match &node.file_type {
+                    NodeType::Directory(children) => {
+                        children.iter().flat_map(collect_nodes).collect()
+                    }
+                    NodeType::File(_) => vec![node],
+                }
+            }
+            Self {
+                queue: VecDeque::from(collect_nodes(root)),
+            }
+        }
+    }
+
+    impl<'a> Iterator for TreeIterator<'a> {
+        type Item = &'a Node;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.queue.pop_front()
+        }
+    }
 }
 
 mod types {
@@ -119,6 +211,16 @@ enum PathLookup {
     MalformedPath,
 }
 
+enum Lookup<'a> {
+    InodeNotFound,
+    ChildNotFound,
+    Found(&'a Node),
+}
+
+pub fn lookup<'a>(tree: &'a Tree, inode: Inode, name: &str) -> Option<&'a Node> {
+    tree.iter().find(|node| node.inode() == inode).
+}
+
 impl MusicFS {
     pub fn from_dir(root: impl AsRef<Path>) -> (Self, Vec<Error>) {
         let files_matching_ext = WalkDir::new(&root)
@@ -142,8 +244,7 @@ impl MusicFS {
             MusicFS {
                 source_files,
                 root: root.as_ref().to_path_buf(),
-                vpath_table: Default::default(),
-                inode_table: Default::default(),
+                tree: Tree,
                 fd_table: Default::default(),
                 fd_index: 0,
             },
